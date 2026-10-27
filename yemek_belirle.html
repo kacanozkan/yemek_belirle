@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ne Pişirsem? - Yemek Bulucu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        html, body {
+            overscroll-behavior-y: none;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #f8fafc;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* SEÇİLEN MALZEME YEŞİL YANACAK */
+        .custom-checkbox:checked + div {
+            background-color: #10B981;
+            border-color: #10B981;
+            color: white;
+        }
+
+        .custom-checkbox:checked + div .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .check-icon {
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.9); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .animate-pop {
+            animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-red-500 selection:text-white flex justify-center items-center">
+
+    <!-- UYGULAMA KONTEYNERİ -->
+    <div id="appContainer" class="w-full max-w-md h-full sm:h-[100dvh] bg-white shadow-xl flex flex-col relative overflow-hidden">
+
+        <!-- ÜST BAŞLIK -->
+        <header class="bg-gradient-to-r from-red-500 to-orange-500 text-white p-5 shrink-0 z-30 shadow-md">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-xl shadow-inner">
+                        🍳
+                    </div>
+                    <div>
+                        <h1 class="font-extrabold text-xl tracking-tight leading-tight">Ne Pişirsem?</h1>
+                        <p class="text-xs text-red-100 font-medium">Yemek Belirleme Asistanı</p>
+                    </div>
+                </div>
+                <div id="selectedCountBadge" class="bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md border border-white/20">
+                    0 Malzeme
+                </div>
+            </div>
+        </header>
+
+        <!-- EKRAN 1: MALZEME SEÇİM EKRANI -->
+        <main id="screen1" class="flex-1 overflow-y-auto pb-24 relative bg-white">
+            
+            <!-- Arama & Temizle Barı (Tam Opak ve Sabit Başlık) -->
+            <div class="sticky top-0 z-40 bg-white p-4 shadow-sm border-b border-slate-100">
+                <div class="relative mb-3">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Malzeme ara..." 
+                        class="w-full pl-10 pr-4 py-2.5 bg-slate-100 border-none rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                </div>
+                <div class="flex justify-between items-center px-1">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Evdeki Malzemeler</span>
+                    <div class="space-x-2">
+                        <button onclick="selectAll()" class="text-xs text-emerald-600 font-bold hover:underline">Tümünü Seç</button>
+                        <span class="text-slate-300">•</span>
+                        <button onclick="clearAll()" class="text-xs text-slate-400 font-semibold hover:underline">Temizle</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Malzeme Kategorileri Listesi -->
+            <div id="ingredientCategories" class="space-y-6 p-4 pb-6">
+                <!-- JavaScript ile Dinamik Doldurulacak -->
+            </div>
+        </main>
+
+        <!-- EKRAN 2: YEMEK ÖNERİLERİ EKRANI -->
+        <main id="screen2" class="flex-1 p-4 overflow-y-auto pb-6 hidden bg-white">
+            
+            <!-- Geri Dön Butonu -->
+            <button onclick="goToScreen(1)" class="w-full mb-3 flex items-center justify-center space-x-2 text-slate-600 font-semibold text-xs py-2.5 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all shrink-0">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Malzemeleri Düzenle</span>
+            </button>
+
+            <!-- Dikkat Çekici Mor & Pembe Rastgele Öner Butonu -->
+            <button onclick="openRandomModal()" class="w-full mb-5 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-500 text-white font-extrabold text-sm py-3.5 px-4 rounded-2xl shadow-lg shadow-purple-500/30 active:scale-98 transition-all flex items-center justify-center space-x-2 border border-purple-400/30 shrink-0">
+                <i class="fa-solid fa-dice text-lg animate-bounce"></i>
+                <span>Rastgele Yemek Öner!</span>
+            </button>
+
+            <!-- Menü Kombinasyonları Bölümü -->
+            <div id="comboSection" class="mb-6 hidden">
+                <div class="flex items-center space-x-2 mb-3">
+                    <span class="text-base">✨</span>
+                    <h2 class="font-bold text-slate-800 text-sm tracking-tight">Efsane İkili Menü Önerileri</h2>
+                </div>
+                <div id="comboContainer" class="space-y-3"></div>
+            </div>
+
+            <!-- Tam Yapılabilecek Yemekler (%100) -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <h2 class="font-bold text-slate-800 text-sm">Hemen Pişirebileceğiniz Yemekler</h2>
+                    </div>
+                    <span id="fullMatchCount" class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">0</span>
+                </div>
+                <div id="fullMatchContainer" class="space-y-3"></div>
+            </div>
+
+            <!-- Kısmi Yapılabilecek Yemekler (Eksikli) -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 bg-amber-500 rounded-full"></span>
+                        <h2 class="font-bold text-slate-800 text-sm">Bir Kaç Eksikle Yapılabilecekler</h2>
+                    </div>
+                    <span id="partialMatchCount" class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">0</span>
+                </div>
+                <div id="partialMatchContainer" class="space-y-3"></div>
+            </div>
+
+        </main>
+
+        <!-- EKRAN 1 ALT BUTON -->
+        <div id="bottomBar" class="absolute bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-100 p-3 z-30">
+            <button onclick="goToScreen(2)" class="w-full bg-gradient-to-r from-red-500 to-orange-500 text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-red-500/25 active:scale-98 transition-all flex items-center justify-center space-x-2">
+                <span>Ne Pişirebilirim?</span>
+                <i class="fa-solid fa-utensils"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- RASTGELE ÖNERİ MODALI (POPUP) -->
+    <div id="randomModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl p-6 max-w-xs w-full shadow-2xl animate-pop text-center relative border border-slate-100">
+            <button onclick="closeRandomModal()" class="absolute top-4 right-4 w-8 h-8 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="w-16 h-16 bg-gradient-to-tr from-purple-500 to-pink-500 rounded-2xl mx-auto flex items-center justify-center text-3xl shadow-lg shadow-purple-500/30 mb-3 text-white">
+                🎲
+            </div>
+
+            <span class="text-xs font-extrabold uppercase tracking-widest text-purple-600 bg-purple-50 px-3 py-1 rounded-full">Bugünün Menüsü</span>
+            
+            <h3 id="randomDishName" class="text-xl font-black text-slate-800 mt-3 mb-1">Kuru Fasulye</h3>
+            <p id="randomDishCategory" class="text-xs text-slate-400 font-medium mb-4">Ana Yemek</p>
+
+            <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100 mb-5">
+                <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Gerekli Malzemeler</div>
+                <div id="randomDishIngredients" class="text-xs text-slate-600 font-medium leading-relaxed"></div>
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="pickRandomDish()" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-4 rounded-xl shadow-md active:scale-95 transition-all text-sm flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span>Başka Yemek Öner</span>
+                </button>
+                <button onclick="closeRandomModal()" class="w-full bg-slate-100 text-slate-600 font-semibold py-2.5 px-4 rounded-xl text-xs hover:bg-slate-200 transition-all">
+                    Tamam, Bunu Pişireceğim!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT KODLARI -->
+    <script>
+        const INGREDIENT_CATEGORIES = {
+            "Sebzeler": ["Patates", "Patlıcan", "Domates", "Soğan", "Kabak", "Biber", "Lahana", "Taze fasulye", "Üzüm yaprağı"],
+            "Bakliyatlar": ["Kuru fasulye", "Nohut", "Kırmızı mercimek"],
+            "Tahıl ve Unlu Mamuller": ["Pirinç", "Bulgur", "Şehriye", "Un", "Makarna", "Mantı", "Bayat ekmek", "Hamburger ekmeği", "Maya"],
+            "Et & Şarküteri": ["Kıyma", "Kırmızı et", "Tavuk eti", "Ciğer", "Şinitzel", "Sucuk", "Sosis", "Salam"],
+            "Temel Gıdalar": ["Sıvı yağ", "Salça", "Yoğurt", "Süt", "Yumurta", "Kaşar peyniri", "Mantar", "Mısır", "Zeytin", "Nane"]
+        };
+
+        const DISHES = [
+            { id: 1, name: "Kuru Fasulye", type: "Ana Yemek", ingredients: ["Kuru fasulye", "Kırmızı et", "Salça", "Soğan", "Sıvı yağ"] },
+            { id: 2, name: "Taze Fasulye", type: "Ana Yemek", ingredients: ["Taze fasulye", "Domates", "Salça", "Soğan", "Sıvı yağ"] },
+            { id: 3, name: "Türlü", type: "Ana Yemek", ingredients: ["Taze fasulye", "Patlıcan", "Kabak", "Patates", "Biber", "Domates", "Salça", "Sıvı yağ"] },
+            { id: 4, name: "Dolma", type: "Ana Yemek", ingredients: ["Kıyma", "Salça", "Soğan", "Patlıcan", "Domates", "Biber", "Kabak", "Pirinç"] },
+            { id: 5, name: "Sarma", type: "Ana Yemek", ingredients: ["Üzüm yaprağı", "Pirinç", "Soğan", "Salça", "Sıvı yağ"] },
+            { id: 6, name: "Lahana Sarması", type: "Ana Yemek", ingredients: ["Lahana", "Kıyma", "Pirinç", "Soğan", "Salça", "Sıvı yağ"] },
+            { id: 7, name: "Sulu Köfte", type: "Ana Yemek", ingredients: ["Kıyma", "Pirinç", "Soğan", "Salça", "Sıvı yağ", "Patates"] },
+            { id: 8, name: "Kuru Köfte", type: "Ana Yemek", ingredients: ["Bayat ekmek", "Kıyma", "Soğan", "Salça", "Sıvı yağ"] },
+            { id: 9, name: "Patates Kızartması", type: "Atıştırmalık", ingredients: ["Patates", "Sıvı yağ"] },
+            { id: 10, name: "Hamburger", type: "Fast Food", ingredients: ["Hamburger ekmeği", "Şinitzel"] },
+            { id: 11, name: "Pizza", type: "Fast Food", ingredients: ["Sucuk", "Sosis", "Salam", "Mantar", "Biber", "Zeytin", "Mısır", "Un", "Maya", "Salça", "Süt"] },
+            { id: 12, name: "Pilav", type: "Yan Yemek", ingredients: ["Pirinç", "Sıvı yağ"] },
+            { id: 13, name: "Karnıyarık", type: "Ana Yemek", ingredients: ["Patlıcan", "Kıyma", "Soğan", "Domates", "Salça", "Sıvı yağ"] },
+            { id: 14, name: "Mercimek Çorbası", type: "Çorba", ingredients: ["Kırmızı mercimek", "Soğan", "Un", "Sıvı yağ", "Salça"] },
+            { id: 15, name: "Menemen", type: "Kahvaltı / Yemek", ingredients: ["Yumurta", "Domates", "Biber", "Sıvı yağ", "Soğan"] },
+            { id: 16, name: "Makarna", type: "Ana Yemek", ingredients: ["Makarna", "Sıvı yağ", "Salça"] },
+            { id: 17, name: "Mantı", type: "Ana Yemek", ingredients: ["Mantı", "Yoğurt", "Salça", "Sıvı yağ"] },
+            { id: 18, name: "Tavuk Sote", type: "Ana Yemek", ingredients: ["Tavuk eti", "Biber", "Domates", "Soğan", "Sıvı yağ", "Salça"] },
+            { id: 19, name: "Et Kavurma", type: "Ana Yemek", ingredients: ["Kırmızı et", "Sıvı yağ"] },
+            { id: 20, name: "Bulgur Pilavı", type: "Yan Yemek", ingredients: ["Bulgur", "Soğan", "Domates", "Biber", "Salça", "Sıvı yağ"] },
+            { id: 21, name: "Şehriye Çorbası", type: "Çorba", ingredients: ["Şehriye", "Salça", "Soğan", "Sıvı yağ"] },
+            { id: 22, name: "Nohut", type: "Ana Yemek", ingredients: ["Nohut", "Kırmızı et", "Soğan", "Salça", "Sıvı yağ"] },
+            { id: 23, name: "Fırında Tavuk", type: "Ana Yemek", ingredients: ["Tavuk eti", "Patates", "Sıvı yağ", "Salça"] },
+            { id: 24, name: "Patates Püresi", type: "Yan Yemek", ingredients: ["Patates", "Süt", "Sıvı yağ"] },
+            { id: 25, name: "Ciğer Kızartma", type: "Ana Yemek", ingredients: ["Ciğer", "Un", "Patates", "Sıvı yağ"] },
+            { id: 26, name: "Soslu Makarna", type: "Ana Yemek", ingredients: ["Makarna", "Kıyma", "Soğan", "Domates", "Salça", "Sıvı yağ"] },
+            { id: 27, name: "Şorva", type: "Ana Yemek", ingredients: ["Tavuk eti", "Nohut", "Yoğurt", "Sıvı yağ"] },
+            { id: 28, name: "Yayla Çorbası", type: "Çorba", ingredients: ["Pirinç", "Yoğurt", "Un", "Nane", "Sıvı yağ"] },
+            { id: 29, name: "İslim Kebabı", type: "Ana Yemek", ingredients: ["Patlıcan", "Kıyma", "Domates", "Biber", "Salça", "Sıvı yağ"] },
+            { id: 30, name: "Köfteli Patates Yemeği", type: "Ana Yemek", ingredients: ["Kıyma", "Patates", "Soğan", "Salça", "Sıvı yağ"] }
+        ];
+
+        const COMBOS = [
+            { dish1Id: 1, dish2Id: 12, name: "Kuru Fasulye & Pilav" },
+            { dish1Id: 22, dish2Id: 12, name: "Nohut & Pilav" },
+            { dish1Id: 13, dish2Id: 12, name: "Karnıyarık & Pilav" },
+            { dish1Id: 8, dish2Id: 9, name: "Kuru Köfte & Patates Kızartması" },
+            { dish1Id: 18, dish2Id: 12, name: "Tavuk Sote & Pirinç Pilavı" },
+            { dish1Id: 1, dish2Id: 20, name: "Kuru Fasulye & Bulgur Pilavı" }
+        ];
+
+        let selectedIngredients = new Set();
+        let lastSuggestedDishId = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderIngredients();
+            setupSearch();
+        });
+
+        function renderIngredients() {
+            const container = document.getElementById('ingredientCategories');
+            container.innerHTML = '';
+
+            for (const [category, items] of Object.entries(INGREDIENT_CATEGORIES)) {
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'category-group';
+                
+                categoryDiv.innerHTML = `
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 px-1">${category}</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${items.map(item => `
+                            <label class="cursor-pointer select-none">
+                                <input type="checkbox" value="${item}" 
+                                    class="custom-checkbox hidden" 
+                                    onchange="toggleIngredient('${item}')"
+                                    ${selectedIngredients.has(item) ? 'checked' : ''}>
+                                <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200/80 rounded-2xl transition-all duration-200">
+                                    <span class="text-xs font-semibold text-slate-700">${item}</span>
+                                    <div class="w-5 h-5 rounded-full border border-slate-300 flex items-center justify-center check-icon bg-emerald-500 border-emerald-500 text-white">
+                                        <i class="fa-solid fa-check text-[10px]"></i>
+                                    </div>
+                                </div>
+                            </label>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(categoryDiv);
+            }
+        }
+
+        function toggleIngredient(item) {
+            if (selectedIngredients.has(item)) {
+                selectedIngredients.delete(item);
+            } else {
+                selectedIngredients.add(item);
+            }
+            updateSelectedBadge();
+        }
+
+        function updateSelectedBadge() {
+            const count = selectedIngredients.size;
+            document.getElementById('selectedCountBadge').innerText = `${count} Malzeme`;
+        }
+
+        function selectAll() {
+            Object.values(INGREDIENT_CATEGORIES).flat().forEach(item => selectedIngredients.add(item));
+            renderIngredients();
+            updateSelectedBadge();
+        }
+
+        function clearAll() {
+            selectedIngredients.clear();
+            renderIngredients();
+            updateSelectedBadge();
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase().trim();
+                const labels = document.querySelectorAll('#ingredientCategories label');
+
+                labels.forEach(label => {
+                    const text = label.textContent.toLowerCase();
+                    if (text.includes(query)) {
+                        label.style.display = 'block';
+                    } else {
+                        label.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        function goToScreen(screenNumber) {
+            const s1 = document.getElementById('screen1');
+            const s2 = document.getElementById('screen2');
+            const bottomBar = document.getElementById('bottomBar');
+
+            if (screenNumber === 1) {
+                s1.classList.remove('hidden');
+                s2.classList.add('hidden');
+                bottomBar.classList.remove('hidden');
+                s1.scrollTop = 0;
+            } else {
+                s1.classList.add('hidden');
+                s2.classList.remove('hidden');
+                bottomBar.classList.add('hidden');
+                calculateRecipes();
+                s2.scrollTop = 0;
+            }
+        }
+
+        function calculateRecipes() {
+            const fullMatches = [];
+            const partialMatches = [];
+
+            DISHES.forEach(dish => {
+                const missing = dish.ingredients.filter(ing => !selectedIngredients.has(ing));
+                const matchCount = dish.ingredients.length - missing.length;
+                const matchPercentage = Math.round((matchCount / dish.ingredients.length) * 100);
+
+                if (missing.length === 0) {
+                    fullMatches.push({ ...dish, matchPercentage });
+                } else if (matchPercentage >= 50) {
+                    partialMatches.push({ ...dish, missing, matchPercentage });
+                }
+            });
+
+            partialMatches.sort((a, b) => b.matchPercentage - a.matchPercentage);
+
+            renderDishes(fullMatches, partialMatches);
+            renderCombos();
+        }
+
+        function renderDishes(fullMatches, partialMatches) {
+            const fullContainer = document.getElementById('fullMatchContainer');
+            const partialContainer = document.getElementById('partialMatchContainer');
+
+            document.getElementById('fullMatchCount').innerText = fullMatches.length;
+            document.getElementById('partialMatchCount').innerText = partialMatches.length;
+
+            if (fullMatches.length === 0) {
+                fullContainer.innerHTML = `
+                    <div class="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center">
+                        <p class="text-xs text-slate-500 font-medium">Tüm malzemeleri tam olan yemek bulunamadı. Biraz daha malzeme ekleyin!</p>
+                    </div>
+                `;
+            } else {
+                fullContainer.innerHTML = fullMatches.map(dish => `
+                    <div class="p-4 bg-white border border-emerald-100 rounded-2xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-bold text-slate-800 text-sm">${dish.name}</h3>
+                                <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-semibold">${dish.type}</span>
+                            </div>
+                            <p class="text-xs text-slate-400 font-normal mt-1 leading-snug">${dish.ingredients.join(', ')}</p>
+                        </div>
+                        <span class="text-xs font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100">
+                            %100
+                        </span>
+                    </div>
+                `).join('');
+            }
+
+            if (partialMatches.length === 0) {
+                partialContainer.innerHTML = `
+                    <div class="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center">
+                        <p class="text-xs text-slate-500 font-medium">Kısmi eşleşen yemek bulunmuyor.</p>
+                    </div>
+                `;
+            } else {
+                partialContainer.innerHTML = partialMatches.map(dish => `
+                    <div class="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-bold text-slate-800 text-sm">${dish.name}</h3>
+                                <span class="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md font-semibold">${dish.type}</span>
+                            </div>
+                            <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg">
+                                %${dish.matchPercentage}
+                            </span>
+                        </div>
+                        <div class="text-xs text-red-500 font-medium bg-red-50/50 p-2 rounded-xl border border-red-100/50">
+                            <span class="font-bold">Eksik:</span> ${dish.missing.join(', ')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function renderCombos() {
+            const comboSection = document.getElementById('comboSection');
+            const comboContainer = document.getElementById('comboContainer');
+
+            const availableComboList = COMBOS.filter(combo => {
+                const dish1 = DISHES.find(d => d.id === combo.dish1Id);
+                const dish2 = DISHES.find(d => d.id === combo.dish2Id);
+                
+                const dish1Ready = dish1.ingredients.every(i => selectedIngredients.has(i));
+                const dish2Ready = dish2.ingredients.every(i => selectedIngredients.has(i));
+
+                return dish1Ready && dish2Ready;
+            });
+
+            if (availableComboList.length > 0) {
+                comboSection.classList.remove('hidden');
+                comboContainer.innerHTML = availableComboList.map(combo => `
+                    <div class="p-3.5 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-2xl shadow-md flex items-center justify-between">
+                        <div>
+                            <div class="text-xs font-extrabold uppercase tracking-wider text-orange-100 opacity-90">Menü Önerisi</div>
+                            <div class="font-black text-sm tracking-tight">${combo.name}</div>
+                        </div>
+                        <div class="w-8 h-8 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-base">
+                            👑
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                comboSection.classList.add('hidden');
+            }
+        }
+
+        function openRandomModal() {
+            document.getElementById('randomModal').classList.remove('hidden');
+            pickRandomDish();
+        }
+
+        function closeRandomModal() {
+            document.getElementById('randomModal').classList.add('hidden');
+        }
+
+        function pickRandomDish() {
+            let availableDishes = DISHES.filter(dish => 
+                dish.ingredients.every(ing => selectedIngredients.has(ing))
+            );
+
+            if (availableDishes.length === 0) {
+                availableDishes = DISHES;
+            }
+
+            let pool = availableDishes;
+            if (availableDishes.length > 1 && lastSuggestedDishId !== null) {
+                pool = availableDishes.filter(dish => dish.id !== lastSuggestedDishId);
+            }
+
+            const randomIndex = Math.floor(Math.random() * pool.length);
+            const selectedDish = pool[randomIndex];
+            lastSuggestedDishId = selectedDish.id;
+
+            document.getElementById('randomDishName').innerText = selectedDish.name;
+            document.getElementById('randomDishCategory').innerText = selectedDish.type;
+            document.getElementById('randomDishIngredients').innerText = selectedDish.ingredients.join(', ');
+
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 40,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
